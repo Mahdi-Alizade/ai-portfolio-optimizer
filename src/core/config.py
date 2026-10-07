@@ -1,5 +1,5 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
 # load environment variables from .env file if it exists
@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     risk_free_rate: float = 0.04
     default_lookback_years: int = 2
 
-    class Config:
-        case_sensitive = False
+    # Pydantic v2 configuration
+    model_config = SettingsConfigDict(case_sensitive=False)
 
 
 settings = Settings()
