@@ -5,6 +5,7 @@ from src.core.config import settings
 from src.data.market_data import MarketDataLoader
 from src.quant.mpt_optimizer import ModernPortfolioOptimizer
 from src.quant.black_litterman import BlackLittermanOptimizer
+from src.quant.risk_engine import PortfolioRiskEngine
 from src.ai.sentiment_extractor import SentimentViewExtractor
 
 
@@ -20,7 +21,8 @@ class PortfolioOptimizationService:
         self,
         tickers: List[str],
         news_context: Optional[str] = None,
-        lookback_years: int = 2
+        lookback_years: int = 2,
+        max_asset_allocation: float = 0.40
     ) -> Dict[str, object]:
         # step 1: fetch market historical prices and calculate returns
         normalized_tickers = [t.upper().strip() for t in tickers]
@@ -35,6 +37,23 @@ class PortfolioOptimizationService:
         )
         max_sharpe_result = mpt.optimize_max_sharpe()
         min_vol_result = mpt.optimize_min_volatility()
+
+        # generate risk metrics for baseline MPT portfolios
+        risk_engine_sharpe = PortfolioRiskEngine(
+            daily_returns=daily_returns,
+            weights=max_sharpe_result["weights"]
+        )
+        max_sharpe_result["risk_audit"] = risk_engine_sharpe.generate_comprehensive_risk_report(
+            max_allowed_weight=max_asset_allocation
+        )
+
+        risk_engine_min_vol = PortfolioRiskEngine(
+            daily_returns=daily_returns,
+            weights=min_vol_result["weights"]
+        )
+        min_vol_result["risk_audit"] = risk_engine_min_vol.generate_comprehensive_risk_report(
+            max_allowed_weight=max_asset_allocation
+        )
 
         # step 3: extract AI investor views if news context is provided
         ai_views_list = []
@@ -55,6 +74,15 @@ class PortfolioOptimizationService:
             bl_result = bl_optimizer.optimize_with_views(
                 views_dict=views_dict,
                 confidence_dict=conf_dict
+            )
+
+            # audit risk metrics for Black-Litterman allocations
+            risk_engine_bl = PortfolioRiskEngine(
+                daily_returns=daily_returns,
+                weights=bl_result["weights"]
+            )
+            bl_result["risk_audit"] = risk_engine_bl.generate_comprehensive_risk_report(
+                max_allowed_weight=max_asset_allocation
             )
 
         # step 5: build consolidated payload
