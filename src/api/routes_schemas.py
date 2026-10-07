@@ -25,6 +25,12 @@ class PortfolioOptimizationRequest(BaseModel):
         le=0.20,
         description="Annual risk-free benchmark rate"
     )
+    max_asset_allocation: Optional[float] = Field(
+        default=0.40,
+        ge=0.10,
+        le=1.00,
+        description="Maximum allowed portfolio allocation threshold for a single asset (for concentration risk auditing)"
+    )
 
     @field_validator("tickers")
     @classmethod
