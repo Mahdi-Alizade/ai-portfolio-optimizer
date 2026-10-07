@@ -6,8 +6,8 @@ from src.services.portfolio_service import PortfolioOptimizationService
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.0.0",
-    description="Deterministic Quantitative Portfolio Optimizer with AI Sentiment Integration"
+    version="1.1.0",
+    description="Deterministic Quantitative Portfolio Optimizer with AI Sentiment and Stress-Testing Risk Engine"
 )
 
 # allow CORS for frontend integrations
@@ -38,7 +38,8 @@ def optimize_portfolio(payload: PortfolioOptimizationRequest):
         result = service.run_full_optimization(
             tickers=payload.tickers,
             news_context=payload.news_context,
-            lookback_years=payload.lookback_years
+            lookback_years=payload.lookback_years,
+            max_asset_allocation=payload.max_asset_allocation
         )
 
         return OptimizationResponseModel(
