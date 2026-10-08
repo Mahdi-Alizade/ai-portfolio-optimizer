@@ -10,8 +10,12 @@ class PortfolioOptimizationRequest(BaseModel):
     )
     news_context: Optional[str] = Field(
         None,
-        description="Optional qualitative market news or earnings summary to extract AI views",
+        description="Optional qualitative market news text. If empty and auto_fetch_news=True, live news will be retrieved automatically.",
         examples=["Nvidia reported strong data center revenue, while Apple faces smartphone market saturation."]
+    )
+    auto_fetch_news: Optional[bool] = Field(
+        default=True,
+        description="Automatically retrieve live market news for specified tickers if manual news_context is omitted."
     )
     lookback_years: int = Field(
         default=2,
