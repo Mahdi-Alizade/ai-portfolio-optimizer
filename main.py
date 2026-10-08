@@ -6,8 +6,8 @@ from src.services.portfolio_service import PortfolioOptimizationService
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.1.0",
-    description="Deterministic Quantitative Portfolio Optimizer with AI Sentiment and Stress-Testing Risk Engine"
+    version="1.2.0",
+    description="Deterministic Quantitative Portfolio Optimizer with Automated Live News Ingestion and Risk Auditing"
 )
 
 # allow CORS for frontend integrations
@@ -38,6 +38,7 @@ def optimize_portfolio(payload: PortfolioOptimizationRequest):
         result = service.run_full_optimization(
             tickers=payload.tickers,
             news_context=payload.news_context,
+            auto_fetch_news=payload.auto_fetch_news if payload.auto_fetch_news is not None else True,
             lookback_years=payload.lookback_years,
             max_asset_allocation=payload.max_asset_allocation
         )
@@ -55,7 +56,7 @@ def optimize_portfolio(payload: PortfolioOptimizationRequest):
     except Exception as ex:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Optimization pipeline failed: {str(ex)}"
+            detail=f"Optimization pipeline failed: {str(exc)}" if 'exc' in locals() else f"Optimization pipeline failed: {str(ex)}"
         )
 
 
