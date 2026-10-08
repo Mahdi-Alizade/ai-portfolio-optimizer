@@ -3,6 +3,7 @@ import pandas as pd
 
 from src.core.config import settings
 from src.data.market_data import MarketDataLoader
+from src.data.news_loader import FinancialNewsLoader
 from src.quant.mpt_optimizer import ModernPortfolioOptimizer
 from src.quant.black_litterman import BlackLittermanOptimizer
 from src.quant.risk_engine import PortfolioRiskEngine
@@ -17,11 +18,13 @@ class PortfolioOptimizationService:
         else:
             self.risk_free_rate = settings.risk_free_rate
         self.sentiment_extractor = SentimentViewExtractor()
+        self.news_loader = FinancialNewsLoader(max_articles_per_ticker=3)
 
     def run_full_optimization(
         self,
         tickers: List[str],
         news_context: Optional[str] = None,
+        auto_fetch_news: bool = True,
         lookback_years: int = 2,
         max_asset_allocation: float = 0.40
     ) -> Dict[str, object]:
@@ -78,18 +81,25 @@ class PortfolioOptimizationService:
         )
         min_vol_result["backtest_performance"] = bt_min_vol.generate_performance_metrics()
 
-        # step 3: extract AI investor views if news context is provided
+        # step 3: resolve financial news context (manual override or auto-fetch)
+        active_news_context = ""
+        if news_context and len(news_context.strip()) > 0:
+            active_news_context = news_context.strip()
+        elif auto_fetch_news:
+            active_news_context = self.news_loader.build_news_context(normalized_tickers)
+
+        # step 4: extract AI investor views and run Black-Litterman
         ai_views_list = []
         bl_result = None
 
-        if news_context and len(news_context.strip()) > 0:
+        if active_news_context and len(active_news_context.strip()) > 0:
             views_dict, conf_dict, parsed_views = self.sentiment_extractor.extract_views(
                 tickers=normalized_tickers,
-                news_context=news_context
+                news_context=active_news_context
             )
             ai_views_list = [view.model_dump() for view in parsed_views]
 
-            # step 4: run Black-Litterman using AI-derived views
+            # run Black-Litterman using AI-derived views
             bl_optimizer = BlackLittermanOptimizer(
                 daily_returns=daily_returns,
                 risk_free_rate=self.risk_free_rate
@@ -130,6 +140,7 @@ class PortfolioOptimizationService:
             "lookback_years": lookback_years,
             "risk_free_rate": self.risk_free_rate,
             "historical_metrics": formatted_summary,
+            "news_context_used": active_news_context if len(active_news_context) < 300 else active_news_context[:300] + "...",
             "equal_weight_benchmark": {
                 "weights": equal_weights,
                 "performance": benchmark_performance
