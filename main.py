@@ -56,7 +56,7 @@ def optimize_portfolio(payload: PortfolioOptimizationRequest):
     except Exception as ex:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Optimization pipeline failed: {str(exc)}" if 'exc' in locals() else f"Optimization pipeline failed: {str(ex)}"
+            detail=f"Optimization pipeline failed: {str(ex)}"
         )
 
 
