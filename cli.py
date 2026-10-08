@@ -16,7 +16,7 @@ def print_table_row(col1: str, col2: str, width1: int = 35, width2: int = 30) ->
 
 def run_cli():
     parser = argparse.ArgumentParser(
-        description="Run quantitative portfolio optimization with risk audits and backtesting directly from CLI."
+        description="Run quantitative portfolio optimization with risk audits, automated news feeds and backtesting."
     )
     parser.add_argument(
         "--tickers",
@@ -45,12 +45,13 @@ def run_cli():
     parser.add_argument(
         "--news",
         type=str,
-        default=(
-            "Nvidia demonstrated strong enterprise data center growth and pricing power. "
-            "Apple faced moderate saturation in mature smartphone replacement cycles. "
-            "Microsoft cloud infrastructure consumption continued to accelerate."
-        ),
-        help="Financial news context to extract qualitative views for Black-Litterman."
+        default=None,
+        help="Optional manual financial news text. If not provided, live news feeds will be fetched automatically."
+    )
+    parser.add_argument(
+        "--no-auto-news",
+        action="store_true",
+        help="Disable automatic live news fetching if no manual news text is provided."
     )
 
     args = parser.parse_args()
@@ -65,11 +66,14 @@ def run_cli():
         print("[ERROR] At least 2 distinct ticker symbols are required.")
         sys.exit(1)
 
+    should_auto_fetch = not args.no_auto_news
+
     print_section_header("Starting Portfolio Optimization Pipeline")
     print(f"  Tickers: {', '.join(cleaned_tickers)}")
     print(f"  Lookback Window: {args.lookback} years")
     print(f"  Risk-Free Benchmark: {args.risk_free * 100:.2f}%")
-    print(f"  Max Single Asset Limit: {args.max_weight * 100:.2f}%\n")
+    print(f"  Max Single Asset Limit: {args.max_weight * 100:.2f}%")
+    print(f"  Auto-Fetch Live News: {should_auto_fetch and (args.news is None)}\n")
 
     service = PortfolioOptimizationService(risk_free_rate=args.risk_free)
 
@@ -77,6 +81,7 @@ def run_cli():
         results = service.run_full_optimization(
             tickers=cleaned_tickers,
             news_context=args.news,
+            auto_fetch_news=should_auto_fetch,
             lookback_years=args.lookback,
             max_asset_allocation=args.max_weight
         )
