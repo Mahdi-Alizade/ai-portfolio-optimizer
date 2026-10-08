@@ -6,6 +6,7 @@ from src.data.market_data import MarketDataLoader
 from src.quant.mpt_optimizer import ModernPortfolioOptimizer
 from src.quant.black_litterman import BlackLittermanOptimizer
 from src.quant.risk_engine import PortfolioRiskEngine
+from src.quant.backtest_engine import PortfolioBacktestEngine
 from src.ai.sentiment_extractor import SentimentViewExtractor
 
 
@@ -30,6 +31,16 @@ class PortfolioOptimizationService:
         daily_returns = loader.calculate_daily_returns()
         summary_stats = loader.get_summary_statistics()
 
+        # benchmark: equal weight portfolio
+        equal_weight_val = round(1.0 / len(normalized_tickers), 4)
+        equal_weights = {t: equal_weight_val for t in normalized_tickers}
+        benchmark_bt = PortfolioBacktestEngine(
+            daily_returns=daily_returns,
+            weights=equal_weights,
+            risk_free_rate=self.risk_free_rate
+        )
+        benchmark_performance = benchmark_bt.generate_performance_metrics()
+
         # step 2: run baseline Modern Portfolio Theory optimization
         mpt = ModernPortfolioOptimizer(
             daily_returns=daily_returns,
@@ -46,6 +57,12 @@ class PortfolioOptimizationService:
         max_sharpe_result["risk_audit"] = risk_engine_sharpe.generate_comprehensive_risk_report(
             max_allowed_weight=max_asset_allocation
         )
+        bt_sharpe = PortfolioBacktestEngine(
+            daily_returns=daily_returns,
+            weights=max_sharpe_result["weights"],
+            risk_free_rate=self.risk_free_rate
+        )
+        max_sharpe_result["backtest_performance"] = bt_sharpe.generate_performance_metrics()
 
         risk_engine_min_vol = PortfolioRiskEngine(
             daily_returns=daily_returns,
@@ -54,6 +71,12 @@ class PortfolioOptimizationService:
         min_vol_result["risk_audit"] = risk_engine_min_vol.generate_comprehensive_risk_report(
             max_allowed_weight=max_asset_allocation
         )
+        bt_min_vol = PortfolioBacktestEngine(
+            daily_returns=daily_returns,
+            weights=min_vol_result["weights"],
+            risk_free_rate=self.risk_free_rate
+        )
+        min_vol_result["backtest_performance"] = bt_min_vol.generate_performance_metrics()
 
         # step 3: extract AI investor views if news context is provided
         ai_views_list = []
@@ -76,7 +99,7 @@ class PortfolioOptimizationService:
                 confidence_dict=conf_dict
             )
 
-            # audit risk metrics for Black-Litterman allocations
+            # audit risk and backtest metrics for Black-Litterman allocations
             risk_engine_bl = PortfolioRiskEngine(
                 daily_returns=daily_returns,
                 weights=bl_result["weights"]
@@ -84,6 +107,12 @@ class PortfolioOptimizationService:
             bl_result["risk_audit"] = risk_engine_bl.generate_comprehensive_risk_report(
                 max_allowed_weight=max_asset_allocation
             )
+            bt_bl = PortfolioBacktestEngine(
+                daily_returns=daily_returns,
+                weights=bl_result["weights"],
+                risk_free_rate=self.risk_free_rate
+            )
+            bl_result["backtest_performance"] = bt_bl.generate_performance_metrics()
 
         # step 5: build consolidated payload
         formatted_summary = {}
@@ -101,6 +130,10 @@ class PortfolioOptimizationService:
             "lookback_years": lookback_years,
             "risk_free_rate": self.risk_free_rate,
             "historical_metrics": formatted_summary,
+            "equal_weight_benchmark": {
+                "weights": equal_weights,
+                "performance": benchmark_performance
+            },
             "baseline_mpt": {
                 "max_sharpe": max_sharpe_result,
                 "min_volatility": min_vol_result
