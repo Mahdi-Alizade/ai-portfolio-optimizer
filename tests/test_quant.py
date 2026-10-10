@@ -46,6 +46,22 @@ def test_mpt_max_sharpe_weights_sum_to_one(mock_returns):
         assert w <= 1.0
 
 
+def test_mpt_turnover_penalty_constrains_rebalancing(mock_returns):
+    optimizer = ModernPortfolioOptimizer(daily_returns=mock_returns, risk_free_rate=0.03)
+
+    # current portfolio holds 100% in ASSET_A
+    current_portfolio = {"ASSET_A": 1.0, "ASSET_B": 0.0, "ASSET_C": 0.0}
+
+    # case 1: zero penalty -> optimizer shifts heavily to max sharpe
+    unconstrained = optimizer.optimize_max_sharpe(current_weights=current_portfolio, turnover_penalty=0.0)
+
+    # case 2: strong turnover penalty -> optimizer stays close to current holdings
+    penalized = optimizer.optimize_max_sharpe(current_weights=current_portfolio, turnover_penalty=2.0)
+
+    assert penalized["turnover_rate"] <= unconstrained["turnover_rate"]
+    assert penalized["weights"]["ASSET_A"] >= unconstrained["weights"]["ASSET_A"]
+
+
 def test_mpt_min_volatility_reduces_risk(mock_returns):
     optimizer = ModernPortfolioOptimizer(daily_returns=mock_returns, risk_free_rate=0.03)
     min_vol_res = optimizer.optimize_min_volatility()
