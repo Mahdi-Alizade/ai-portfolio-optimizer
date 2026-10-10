@@ -16,7 +16,7 @@ def print_table_row(col1: str, col2: str, width1: int = 35, width2: int = 30) ->
 
 def run_cli():
     parser = argparse.ArgumentParser(
-        description="Run quantitative portfolio optimization with risk audits, automated news feeds and backtesting."
+        description="Run quantitative portfolio optimization with risk audits, automated news feeds, backtesting and Monte Carlo."
     )
     parser.add_argument(
         "--tickers",
@@ -83,7 +83,8 @@ def run_cli():
             news_context=args.news,
             auto_fetch_news=should_auto_fetch,
             lookback_years=args.lookback,
-            max_asset_allocation=args.max_weight
+            max_asset_allocation=args.max_weight,
+            run_monte_carlo=True
         )
     except Exception as exc:
         print(f"[ERROR] Optimization pipeline execution failed: {str(exc)}")
@@ -124,6 +125,13 @@ def run_cli():
         bt = strat_data.get("backtest_performance", {})
         print(f"   Backtest   -> Cumulative: {bt.get('cumulative_return', 0.0) * 100:.2f}% | Max Drawdown: {bt.get('max_drawdown', 0.0) * 100:.2f}% | Sortino: {bt.get('sortino_ratio', 0.0):.2f}")
 
+        # Monte Carlo
+        mc = strat_data.get("forward_monte_carlo")
+        if mc:
+            p = mc["percentiles"]
+            print(f"   Monte Carlo (1Y) -> Expected Gain: {mc['expected_gain_percentage']:+.2f}% | Win Prob: {mc['probability_of_profit']:.1f}%")
+            print(f"                       P5 (Worst): ${p['p5_worst_case']:,.2f} | P50: ${p['p50_median']:,.2f} | P95 (Best): ${p['p95_best_case']:,.2f}")
+
     # 3. AI-Informed Black-Litterman Allocation
     bl_data = results.get("black_litterman")
     if bl_data:
@@ -144,6 +152,12 @@ def run_cli():
 
         bl_bt = bl_data.get("backtest_performance", {})
         print(f"   Backtest   -> Cumulative: {bl_bt.get('cumulative_return', 0.0) * 100:.2f}% | Max Drawdown: {bl_bt.get('max_drawdown', 0.0) * 100:.2f}% | Sortino: {bl_bt.get('sortino_ratio', 0.0):.2f}")
+
+        bl_mc = bl_data.get("forward_monte_carlo")
+        if bl_mc:
+            bp = bl_mc["percentiles"]
+            print(f"   Monte Carlo (1Y) -> Expected Gain: {bl_mc['expected_gain_percentage']:+.2f}% | Win Prob: {bl_mc['probability_of_profit']:.1f}%")
+            print(f"                       P5: ${bp['p5_worst_case']:,.2f} | P50: ${bp['p50_median']:,.2f} | P95: ${bp['p95_best_case']:,.2f}")
 
     # 4. Stress Test Scenario Drawdowns
     print_section_header("Macro Stress Testing (Simulated Crisis Drawdowns)")
