@@ -1,123 +1,70 @@
 # AI-Powered Quantitative Portfolio Optimizer
 
-A high-performance quantitative portfolio allocation and risk audit engine integrated with structured AI sentiment extraction. The system combines classical Modern Portfolio Theory (MPT) with the Black-Litterman model, SQLite-backed market data caching, parametric/historical risk audits (VaR, CVaR, stress testing), and walk-forward performance attribution metrics.
+A deterministic institutional-grade portfolio allocation, risk management, and Monte Carlo simulation engine integrated with automated live news ingestion and structured LLM investor view synthesis.
 
 ---
 
-## Architectural Workflow
+## Architecture Flow
 
-[Market Financial Context / News]
+[Live Financial News / RSS Feeds] ─────────┐
+▼
+[Structured AI View Extractor]
+(Pydantic Schema Validation)
 │
 ▼
-[Structured AI View Parser]
-(OpenAI Pydantic Enforcement)
+[Investor Views Matrix (P, Q, Ω)]
 │
-▼
-[Investor Views Vector & Uncertainty] ──┐
-(Q, P, Ω)                  │
-▼
-[Market Data Ingestion] ──────► [Black-Litterman Engine] ──► [Optimized Allocation]
-(SQLite Cached Pricing)      (Posterior Expected Returns)            │
-│                                                        │
-├──────────────► [Modern Portfolio Theory] ──────────────┤
-│                  (SLSQP Sharp / Min Vol)                │
-│                                                        ▼
+[Historical Prices (SQLite Cache)]        │
+│                          │
+├──────────────────────────┼──────────────► [Black-Litterman Engine]
+│                          │                (Posterior Expected Returns)
+│                          │                               │
+├─► [MPT SLSQP Optimizer] ─┴───────────────────────────────┤
+│   (Turnover & Friction Penalty Regularized)              │
+│                                                          ▼
 ├──────────────────────────────────────────────► [Risk & Audit Engine]
-│                                                (VaR, CVaR, Shocks)
-│                                                        │
-└──────────────────────────────────────────────► [Backtesting Engine]
-(Sortino, Calmar, MDD)
+│                                                (VaR, CVaR, Concentration)
+│                                                          │
+├──────────────────────────────────────────────► [Backtesting Engine]
+│                                                (CAGR, Sortino, MDD)
+│                                                          │
+└──────────────────────────────────────────────► [Monte Carlo Simulator]
+(Correlated Geometric Brownian)
 │
 ▼
-[FastAPI REST Delivery]
+[FastAPI & CLI Delivery]
 
 
 ---
 
 ## Core Capabilities
 
-### 1. Mathematical Quant Engines (`src/quant/`)
-- **Modern Portfolio Theory (MPT)**: Sequential Least Squares Programming (`SLSQP`) solving for:
-  - Maximum Sharpe Allocation ($\max \frac{\mathbf{w}^T \mathbf{\mu} - r_f}{\sigma_p}$)
-  - Minimum Volatility Allocation ($\min \mathbf{w}^T \mathbf{\Sigma} \mathbf{w}$)
-  - Bounds: Long-only ($0 \le w_i \le 1$), Full Investment ($\sum w_i = 1$).
-- **Black-Litterman Model**:
-  - Computes market equilibrium excess returns $\mathbf{\Pi} = \delta \mathbf{\Sigma} \mathbf{w}_{mkt}$.
-  - Blends subjective investor views with the market prior via:
-    $$E[R] = \left[(\tau \mathbf{\Sigma})^{-1} + \mathbf{P}^T \mathbf{\Omega}^{-1} \mathbf{P}\right]^{-1} \left[(\tau \mathbf{\Sigma})^{-1} \mathbf{\Pi} + \mathbf{P}^T \mathbf{\Omega}^{-1} \mathbf{Q}\right]$$
-- **Portfolio Risk Engine (`src/quant/risk_engine.py`)**:
-  - **1-Day Historical & Parametric Value at Risk (VaR)** at 95% confidence.
-  - **Conditional Value at Risk (CVaR / Expected Shortfall)** evaluating tail risk.
-  - **Historical Crisis Stress-Testing**: Simulating drawdowns under the 2008 GFC, 2020 COVID shock, and 2022 rate hike cycles.
-  - **Concentration Risk Audit**: Flags individual asset overweight violations.
-- **Backtesting & Attribution Engine (`src/quant/backtest_engine.py`)**:
-  - Cumulative Wealth Compounding, CAGR, Sortino Ratio, Maximum Drawdown (MDD), and Calmar Ratio benchmarking.
+1. **Deterministic Quant Engines (`src/quant/`)**:
+   - **Modern Portfolio Theory (MPT)**: SLSQP solver with optional L1 transaction cost and turnover penalty ($\lambda_{turnover} \sum \vert{}w_i - w_i^{current}\vert{}$).
+   - **Black-Litterman Master Formula**: Mathematical blending of equilibrium implied returns ($\Pi = \delta \Sigma w_{mkt}$) with qualitative AI views and diagonal error variance ($\Omega$).
+   - **Monte Carlo Simulator (`src/quant/monte_carlo.py`)**: Multivariate Geometric Brownian Motion utilizing Cholesky decomposition of the covariance matrix for correlated asset shocks (1,000+ paths generating P5, P50, and P95 distribution percentiles).
+   - **Risk & Macro Stress-Testing (`src/quant/risk_engine.py`)**: 1-day 95% Historical & Parametric VaR, Conditional VaR (Expected Shortfall), concentration threshold audits, and stylized stress testing (2008 GFC, 2020 COVID shock, 2022 rate hike cycles).
+   - **Attribution & Backtesting (`src/quant/backtest_engine.py`)**: Historical compounding, CAGR, Sortino Ratio, Maximum Drawdown (MDD), and Calmar Ratio benchmarking.
 
-### 2. High-Performance Data Layer (`src/data/`)
-- **SQLite Price Cache (`src/data/cache_manager.py`)**: Automatic local caching of historical trading sessions to prevent API rate-limiting, reduce network latency, and guarantee deterministic query playback.
+2. **Automated Live Ingestion & Local Caching (`src/data/`)**:
+   - **SQLite Price Cache (`src/data/cache_manager.py`)**: Persistent local storage preventing API rate limits and network latency.
+   - **Financial News Loader (`src/data/news_loader.py`)**: Automated live news feed aggregation and sanitation per ticker symbol.
 
-### 3. Structured LLM Layer (`src/ai/`)
-- Uses deterministic OpenAI structured outputs (`beta.chat.completions.parse`) with strict Pydantic schemas (`SingleAssetView`, `PortfolioViewsResponse`) to translate unstructured news into bounded quantitative vectors ($Q$) and diagonal confidence variances ($\Omega$).
+3. **Structured AI Integration (`src/ai/`)**:
+   - Uses OpenAI structured outputs (`beta.chat.completions.parse`) with strict Pydantic models to guarantee deterministic extraction of excess return estimates and bounded confidence levels.
 
 ---
 
-## Directory Structure
+## Running the Application
 
-```text
-ai-portfolio-optimizer/
-├── src/
-│   ├── ai/
-│   │   ├── __init__.py
-│   │   ├── schemas.py                 # Pydantic schemas for view generation
-│   │   └── sentiment_extractor.py     # Structured LLM view extractor
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes_schemas.py          # API validation models
-│   ├── core/
-│   │   ├── __init__.py
-│   │   └── config.py                  # Pydantic v2 application settings
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── cache_manager.py           # SQLite price cache storage
-│   │   └── market_data.py             # Historical pricing & return calculation
-│   ├── quant/
-│   │   ├── __init__.py
-│   │   ├── backtest_engine.py         # Sortino, Calmar, MDD & performance metrics
-│   │   ├── black_litterman.py         # Black-Litterman matrix solver
-│   │   ├── mpt_optimizer.py           # SLSQP Sharpe & variance minimizer
-│   │   └── risk_engine.py             # Historical VaR, CVaR & macro stress tests
-│   └── services/
-│       ├── __init__.py
-│       └── portfolio_service.py       # Orchestration pipeline
-├── tests/
-│   ├── __init__.py
-│   ├── test_api.py                    # API route and validation tests
-│   ├── test_backtest.py               # Cumulative return and drawdown tests
-│   ├── test_cache.py                  # SQLite cache save and retrieval tests
-│   ├── test_quant.py                  # Matrix and constraint unit tests
-│   └── test_risk.py                   # VaR, CVaR and stress testing tests
-├── .env.example
-├── .gitignore
-├── main.py                            # FastAPI entry point
-├── requirements.txt
-└── README.md
-Quickstart
-1. Environment Setup
-PowerShell
-python -m venv venv ; .\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-2. Configuration
-PowerShell
-Copy-Item .env.example .env
-Provide your OpenAI API key in .env:
-
-Plaintext
-OPENAI_API_KEY=your_openai_api_key_here
-DEBUG=True
-3. Run Test Suite
-PowerShell
-pytest -v tests/
-4. Start the Application
+### 1. Interactive CLI Runner
+```powershell
+python cli.py --tickers AAPL MSFT NVDA GOOGL --lookback 2 --max-weight 0.35
+2. FastAPI REST Server
 PowerShell
 uvicorn main:app --reload --port 8000
-Interactive API docs: http://127.0.0.1:8000/docs
+Swagger UI: http://127.0.0.1:8000/docs
+
+3. Automated Test Suite (19 passing unit tests)
+PowerShell
+pytest -v tests/
